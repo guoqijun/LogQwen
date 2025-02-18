@@ -13,7 +13,7 @@ max_seq_len = 128
 batch_size = 32
 dataset_name = 'BGL'   # 'Thunderbird' 'HDFS_v1'  'BGL'  'Liberty‘
 # data_path = r'/mnt/public/gw/SyslogData/{}/test.csv'.format(dataset_name)
-data_path = r'/mnt/workspace/DATA/test.csv'
+data_path = r'/mnt/workspace/test.csv'
 
 # Bert_path = r"/mnt/public/gw/LLM_model/bert-base-uncased"
 # Llama_path = r"/mnt/public/gw/LLM_model/Meta-Llama-3-8B"
