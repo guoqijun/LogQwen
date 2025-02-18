@@ -46,10 +46,11 @@ def evalModel(model, dataset, batch_size):
             pre = bathc_i
 
             this_batch_seqs, _ = dataset.get_batch(this_batch_indexes)
+            print(this_batch_seqs)
             outputs_ids = model(this_batch_seqs)
+            print(outputs_ids)
             outputs = model.Llama_tokenizer.batch_decode(outputs_ids)
-
-            # print(outputs)
+            print(outputs)
 
             for text in outputs:
                 matches = re.findall(r' (.*?)\.<|end_of_text|>', text)
