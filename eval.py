@@ -20,6 +20,7 @@ data_path = r'/mnt/workspace/DATA/test.csv'
 
 Bert_path = r"/mnt/workspace/.cache/modelscope/hub/models/AI-ModelScope/bert-base-uncased"
 Llama_path = r"/mnt/workspace/.cache/modelscope/hub/models/LLM-Research/Meta-Llama-3-8B"
+Qwen_path = r"/mnt/workspace/.cache/modelscope/hub/models/Qwen/Qwen2___5-1___5B-Instruct"
 
 ROOT_DIR = Path(__file__).parent
 ft_path = os.path.join(ROOT_DIR, r"ft_model_{}".format(dataset_name))
@@ -91,6 +92,6 @@ def evalModel(model, dataset, batch_size):
 if __name__ == '__main__':
     print(f'dataset: {data_path}')
     dataset = CustomDataset(data_path)
-    model = LogLLM(Bert_path, Llama_path, ft_path=ft_path, is_train_mode=False, device=device,
+    model = LogLLM(Bert_path, Qwen_path, ft_path=ft_path, is_train_mode=False, device=device,
                    max_content_len=max_content_len, max_seq_len=max_seq_len)
     evalModel(model, dataset, batch_size)
