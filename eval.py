@@ -29,7 +29,8 @@ Llama_path = r"/mnt/workspace/LLM/Meta-Llama-3-8B"
 ROOT_DIR = Path(__file__).parent
 ft_path = os.path.join(ROOT_DIR, r"ft_model_{}".format(dataset_name))
 
-device = torch.device("cuda:0")
+# device = torch.device("cuda:0")
+device = "cpu"
 
 print(
     f'dataset_name: {dataset_name}\n'
@@ -38,7 +39,6 @@ print(
     f'max_seq_len: {max_seq_len}\n'
     f'device: {device}')
 
-device = "cpu"
 
 def evalModel(model, dataset, batch_size):
     model.eval()

@@ -78,7 +78,7 @@ def stack_and_pad_left(tensors):
     return stacked_tensor, padding_masks
 
 bnb_config = BitsAndBytesConfig(
-    load_in_4bit=True,  # load the model into memory using 4-bit precision
+    load_in_4bit=False,  # load the model into memory using 4-bit precision
     bnb_4bit_use_double_quant=False,  # use double quantition
     bnb_4bit_quant_type="nf4",  # use NormalFloat quantition
     bnb_4bit_compute_dtype=torch.bfloat16  # use hf for computing when we need
@@ -92,7 +92,7 @@ class LogLLM(nn.Module):
         self.device = device
         self.Llama_tokenizer = AutoTokenizer.from_pretrained(Llama_path, padding_side="right")
         self.Llama_tokenizer.pad_token = self.Llama_tokenizer.eos_token
-        self.Llama_model = AutoModelForCausalLM.from_pretrained(Llama_path, quantization_config=bnb_config,
+        self.Llama_model = AutoModelForCausalLM.from_pretrained(Llama_path,
                                                            low_cpu_mem_usage=True,
                                                            device_map=device)  # embedding dim = 4096
 
