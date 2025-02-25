@@ -8,6 +8,7 @@ import numpy as np
 from torch import nn
 from peft import PeftModel, LoraConfig, prepare_model_for_kbit_training, get_peft_model, TaskType
 
+
 def merge_data(data):
     merged_data = []
 
@@ -22,6 +23,7 @@ def merge_data(data):
         merged_data.extend(sublist)
         current_position += len(sublist)
     return merged_data, start_positions
+
 
 def stack_and_pad_right(tensors):
     # 找到第一维度的最大长度
@@ -50,6 +52,7 @@ def stack_and_pad_right(tensors):
 
     return stacked_tensor, padding_masks
 
+
 def stack_and_pad_left(tensors):
     # 找到第一维度的最大长度
     max_len = max(tensor.shape[0] for tensor in tensors)
@@ -68,7 +71,7 @@ def stack_and_pad_left(tensors):
 
         # 创建填充位置的掩码
         padding_mask = torch.cat([torch.zeros(pad_len, dtype=torch.long),
-                                 torch.ones(tensor.shape[0], dtype=torch.long)])
+                                  torch.ones(tensor.shape[0], dtype=torch.long)])
         padding_masks.append(padding_mask)
 
     # 堆叠所有填充后的张量
@@ -77,6 +80,7 @@ def stack_and_pad_left(tensors):
 
     return stacked_tensor, padding_masks
 
+
 bnb_config = BitsAndBytesConfig(
     load_in_4bit=True,  # load the model into memory using 4-bit precision
     bnb_4bit_use_double_quant=False,  # use double quantition
@@ -84,79 +88,40 @@ bnb_config = BitsAndBytesConfig(
     bnb_4bit_compute_dtype=torch.bfloat16  # use hf for computing when we need
 )
 
+
 class LogLLM(nn.Module):
-    def __init__(self, Bert_path, Llama_path, ft_path=None, is_train_mode=True, device = torch.device("cuda:0"), max_content_len = 128, max_seq_len = 128):
+    def __init__(self, Bert_path, Llama_path, ft_path=None, is_train_mode=True, device=torch.device("cuda:0"),
+                 max_content_len=128, max_seq_len=128):
         super().__init__()
         self.max_content_len = max_content_len  # max length of each log messages (contents)
-        self.max_seq_len = max_seq_len   # max length of each log sequence  (log sequence contains some log messages)
+        self.max_seq_len = max_seq_len  # max length of each log sequence  (log sequence contains some log messages)
         self.device = device
         self.Llama_tokenizer = AutoTokenizer.from_pretrained(Llama_path, padding_side="right")
         self.Llama_tokenizer.pad_token = self.Llama_tokenizer.eos_token
         self.Llama_model = AutoModelForCausalLM.from_pretrained(Llama_path, quantization_config=bnb_config,
-                                                           low_cpu_mem_usage=True,
-                                                           device_map=device)  # embedding dim = 4096
+                                                                low_cpu_mem_usage=True,
+                                                                device_map=device)  # embedding dim = 4096
 
         self.Bert_tokenizer = BertTokenizerFast.from_pretrained(Bert_path, do_lower_case=True)
         self.Bert_model = BertModel.from_pretrained(Bert_path, quantization_config=bnb_config, low_cpu_mem_usage=True,
-                                               device_map=device)
+                                                    device_map=device)
 
-        self.projector = nn.Linear(self.Bert_model.config.hidden_size, self.Llama_model.config.hidden_size, device=device)
-        # self.projector = nn.Linear(self.Bert_model.config.hidden_size, self.Llama_model.config.hidden_size).half().to(device)
+        self.projector = nn.Linear(self.Bert_model.config.hidden_size, self.Llama_model.config.hidden_size,
+                                   device=device)
 
         self.instruc_tokens = self.Llama_tokenizer(
             ['Below is a sequence of system log messages:', '. Is this sequence normal or anomalous? \\n'],
             return_tensors="pt", padding=True).to(self.device)
 
-        # if is_train_mode:
-        #     self.Bert_model = prepare_model_for_kbit_training(self.Bert_model)
-        #     self.Llama_model = prepare_model_for_kbit_training(self.Llama_model)
-
-        if ft_path is not None:
-            print(f'Loading peft model from {ft_path}.')
-            Llama_ft_path = os.path.join(ft_path, 'Llama_ft')
-            Bert_ft_path = os.path.join(ft_path, 'Bert_ft')
-            projector_path = os.path.join(ft_path, 'projector.pt')
-            # self.Llama_model = PeftModel.from_pretrained(
-            #     self.Llama_model,
-            #     Llama_ft_path,
-            #     is_trainable=is_train_mode,
-            #     torch_dtype=torch.float16,
-            # )
-            self.Bert_model = PeftModel.from_pretrained(
-                self.Bert_model,
-                Bert_ft_path,
-                is_trainable=is_train_mode,
-                torch_dtype=torch.float16,
-            )
-            # self.projector.load_state_dict(torch.load(projector_path, map_location=device))
-        else:
-            print(f'Creating peft model.')
-            Bert_peft_config = LoraConfig(task_type=TaskType.FEATURE_EXTRACTION,
-                                          r=4,
-                                          lora_alpha=32,
-                                          lora_dropout=0.01)
-            self.Bert_model = get_peft_model(self.Bert_model, Bert_peft_config)
-
-            Llama_peft_config = LoraConfig(
-                r=8,
-                lora_alpha=16,
-                lora_dropout=0.1,
-                target_modules=["q_proj", "v_proj"],
-                bias="none",
-                task_type=TaskType.CAUSAL_LM
-            )
-            self.Llama_model = get_peft_model(self.Llama_model, Llama_peft_config)
-
     def save_ft_model(self, path):
         if not os.path.exists(path):
             os.makedirs(path)
-        Llama_ft_path = os.path.join(path,'Llama_ft')
-        Bert_ft_path = os.path.join(path,'Bert_ft')
-        projector_path = os.path.join(path,'projector.pt')
-        self.Llama_model.save_pretrained(Llama_ft_path, safe_serialization = True)
-        self.Bert_model.save_pretrained(Bert_ft_path, safe_serialization =True)
+        Llama_ft_path = os.path.join(path, 'Llama_ft')
+        Bert_ft_path = os.path.join(path, 'Bert_ft')
+        projector_path = os.path.join(path, 'projector.pt')
+        self.Llama_model.save_pretrained(Llama_ft_path, safe_serialization=True)
+        self.Bert_model.save_pretrained(Bert_ft_path, safe_serialization=True)
         torch.save(self.projector.state_dict(), projector_path)
-
 
     def set_train_only_projector(self):
         for name, param in self.projector.named_parameters():
@@ -184,7 +149,6 @@ class LogLLM(nn.Module):
         for name, param in self.Llama_model.named_parameters():
             param.requires_grad = False
 
-
     def set_finetuning_all(self):
         for name, param in self.projector.named_parameters():
             param.requires_grad = True
@@ -194,7 +158,6 @@ class LogLLM(nn.Module):
         for name, param in self.Llama_model.named_parameters():
             if 'lora' in name:
                 param.requires_grad = True
-
 
     def train_helper(self, sequences_, labels):
         '''
@@ -225,7 +188,8 @@ class LogLLM(nn.Module):
         answer_tokens = self.Llama_tokenizer(list(labels), padding=True, return_tensors="pt").to(self.device)
 
         target_tokens_ids = torch.cat([answer_tokens['input_ids'][:, 1:],
-                                       torch.full((batch_size, 1), self.Llama_tokenizer.eos_token_id, device=self.device)],
+                                       torch.full((batch_size, 1), self.Llama_tokenizer.eos_token_id,
+                                                  device=self.device)],
                                       dim=-1)  # add eos token
         target_tokens_atts = answer_tokens['attention_mask'].bool()
 
@@ -254,7 +218,7 @@ class LogLLM(nn.Module):
         attention_mask = attention_mask.to(self.device)
         label_mask = attention_mask.clone()
         for i in range(label_mask.shape[0]):
-            label_mask[i, :-target_lens[i]-1] = 0
+            label_mask[i, :-target_lens[i] - 1] = 0
         label_mask = label_mask.bool()
 
         Llama_output = self.Llama_model(inputs_embeds=inputs_embeds, attention_mask=attention_mask).logits
@@ -284,7 +248,7 @@ class LogLLM(nn.Module):
         seq_embeddings = torch.tensor_split(outputs, seq_positions)
 
         prefix = "The sequence is"
-        answer_prefix_tokens = self.Llama_tokenizer(prefix, padding=True, return_tensors="pt")['input_ids'][0,1:].to(
+        answer_prefix_tokens = self.Llama_tokenizer(prefix, padding=True, return_tensors="pt")['input_ids'][0, 1:].to(
             self.device)
 
         if type(self.Llama_model) == peft.peft_model.PeftModelForCausalLM:
@@ -296,8 +260,6 @@ class LogLLM(nn.Module):
 
         ins1 = instruc_embeddings[0][self.instruc_tokens['attention_mask'][0].bool()]
         ins2 = instruc_embeddings[1][self.instruc_tokens['attention_mask'][1].bool()][1:]
-
-
 
         promot_embeddings = []
         for seq_embedding in seq_embeddings:
@@ -332,8 +294,8 @@ class LogLLM(nn.Module):
             else:
                 next_tokens_embeddings = self.Llama_model.model.embed_tokens(next_tokens)
 
-            inputs_embeds = torch.cat([inputs_embeds, next_tokens_embeddings[:,None,:]], dim=1)
-            attention_mask = torch.cat([attention_mask, unfinished_sequences[:,None]], dim=1)
+            inputs_embeds = torch.cat([inputs_embeds, next_tokens_embeddings[:, None, :]], dim=1)
+            attention_mask = torch.cat([attention_mask, unfinished_sequences[:, None]], dim=1)
 
             if eos_token_id_tensor is not None:
                 unfinished_sequences = unfinished_sequences.mul(
@@ -345,7 +307,7 @@ class LogLLM(nn.Module):
                     this_peer_finished = True
 
                 # stop if we exceed the maximum answer length
-            if  5 < len(answer):
+            if 5 < len(answer):
                 this_peer_finished = True
 
-        return torch.stack(answer,dim=1)
+        return torch.stack(answer, dim=1)
