@@ -38,6 +38,7 @@ print(
     f'max_seq_len: {max_seq_len}\n'
     f'device: {device}')
 
+device = "cpu"
 
 def evalModel(model, dataset, batch_size):
     model.eval()
