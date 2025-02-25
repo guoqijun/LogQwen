@@ -18,8 +18,8 @@ data_path = r'/mnt/workspace/test.csv'
 # Bert_path = r"/mnt/public/gw/LLM_model/bert-base-uncased"
 # Llama_path = r"/mnt/public/gw/LLM_model/Meta-Llama-3-8B"
 
-Bert_path = r"/mnt/workspace/.cache/modelscope/hub/AI-ModelScope/bert-base-uncased"
-Llama_path = r"/mnt/workspace/.cache/modelscope/hub/LLM-Research/Meta-Llama-3-8B"
+Bert_path = r"/mnt/workspace/.cache/modelscope/hub/models/AI-ModelScope/bert-base-uncased"
+Llama_path = r"/mnt/workspace/.cache/modelscope/hub/models/LLM-Research/Meta-Llama-3-8B"
 
 ROOT_DIR = Path(__file__).parent
 ft_path = os.path.join(ROOT_DIR, r"ft_model_{}".format(dataset_name))
