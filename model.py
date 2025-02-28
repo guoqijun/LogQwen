@@ -108,10 +108,51 @@ class LogLLM(nn.Module):
 
         self.projector = nn.Linear(self.Bert_model.config.hidden_size, self.Llama_model.config.hidden_size,
                                    device=device)
+        # self.projector = nn.Linear(self.Bert_model.config.hidden_size, self.Llama_model.config.hidden_size).half().to(device)
 
         self.instruc_tokens = self.Llama_tokenizer(
             ['Below is a sequence of system log messages:', '. Is this sequence normal or anomalous? \\n'],
             return_tensors="pt", padding=True).to(self.device)
+
+        # if is_train_mode:
+        #     self.Bert_model = prepare_model_for_kbit_training(self.Bert_model)
+        #     self.Llama_model = prepare_model_for_kbit_training(self.Llama_model)
+
+        if ft_path is not None:
+            print(f'Loading peft model from {ft_path}.')
+            Llama_ft_path = os.path.join(ft_path, 'Llama_ft')
+            Bert_ft_path = os.path.join(ft_path, 'Bert_ft')
+            projector_path = os.path.join(ft_path, 'projector.pt')
+            self.Llama_model = PeftModel.from_pretrained(
+                self.Llama_model,
+                Llama_ft_path,
+                is_trainable=is_train_mode,
+                torch_dtype=torch.float16,
+            )
+            self.Bert_model = PeftModel.from_pretrained(
+                self.Bert_model,
+                Bert_ft_path,
+                is_trainable=is_train_mode,
+                torch_dtype=torch.float16,
+            )
+            self.projector.load_state_dict(torch.load(projector_path, map_location=device))
+        else:
+            print(f'Creating peft model.')
+            Bert_peft_config = LoraConfig(task_type=TaskType.FEATURE_EXTRACTION,
+                                          r=4,
+                                          lora_alpha=32,
+                                          lora_dropout=0.01)
+            self.Bert_model = get_peft_model(self.Bert_model, Bert_peft_config)
+
+            Llama_peft_config = LoraConfig(
+                r=8,
+                lora_alpha=16,
+                lora_dropout=0.1,
+                target_modules=["q_proj", "v_proj"],
+                bias="none",
+                task_type=TaskType.CAUSAL_LM
+            )
+            self.Llama_model = get_peft_model(self.Llama_model, Llama_peft_config)
 
     def save_ft_model(self, path):
         if not os.path.exists(path):
@@ -240,6 +281,7 @@ class LogLLM(nn.Module):
         print("合并后的内容：", data)
         print("合并后的内容的位置：", seq_positions)
         seq_positions = seq_positions[1:]
+
         inputs = self.Bert_tokenizer(data, return_tensors="pt", max_length=self.max_content_len, padding=True,
                                      truncation=True).to(self.device)
         print("bert分词之后；", inputs)
@@ -270,20 +312,15 @@ class LogLLM(nn.Module):
             answer_prefix_tokens_embeddings = self.Llama_model.model.embed_tokens(answer_prefix_tokens)
 
         ins1 = instruc_embeddings[0][self.instruc_tokens['attention_mask'][0].bool()]
-        print("instruc_embeddings的ins1；", ins1)
         ins2 = instruc_embeddings[1][self.instruc_tokens['attention_mask'][1].bool()][1:]
-        print("instruc_embeddings的ins2；", ins2)
 
         promot_embeddings = []
         for seq_embedding in seq_embeddings:
             prompt_embedding = torch.cat([ins1, seq_embedding, ins2, answer_prefix_tokens_embeddings])
-            print("拼接之后的prompt_embedding：", prompt_embedding)
             promot_embeddings.append(prompt_embedding)
 
         inputs_embeds, attention_mask = stack_and_pad_left(promot_embeddings)
         attention_mask = attention_mask.to(self.device)
-        print("填充inputs_embeds：", inputs_embeds)
-        print("填充attention_mask：", attention_mask)
 
         pad_token_id = self.Llama_tokenizer.pad_token_id
         eos_token_id = self.Llama_tokenizer.eos_token_id
@@ -297,16 +334,13 @@ class LogLLM(nn.Module):
         answer = []
         while not this_peer_finished:
             Llama_output = self.Llama_model(inputs_embeds=inputs_embeds, attention_mask=attention_mask).logits
-            print("llm的输出：", Llama_output)
             next_token_logits = Llama_output[:, -1, :]
-            print("next_token_logits：", next_token_logits)
             next_tokens = torch.argmax(next_token_logits, dim=-1)
+
             next_tokens = next_tokens * unfinished_sequences + pad_token_id * (1 - unfinished_sequences)
-            print("next_tokens：", next_tokens)
 
             # print(next_tokens)
             answer.append(next_tokens)
-            print("answer：", answer)
 
             if type(self.Llama_model) == peft.peft_model.PeftModelForCausalLM:
                 next_tokens_embeddings = self.Llama_model.model.model.embed_tokens(next_tokens)
