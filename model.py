@@ -264,6 +264,7 @@ class LogLLM(nn.Module):
             instruc_embeddings = self.Llama_model.model.model.embed_tokens(self.instruc_tokens['input_ids'])
             answer_prefix_tokens_embeddings = self.Llama_model.model.model.embed_tokens(answer_prefix_tokens)
         else:
+            ##
             print("llm的类型不是peft.peft_model.PeftModelForCausalLM")
             instruc_embeddings = self.Llama_model.model.embed_tokens(self.instruc_tokens['input_ids'])
             answer_prefix_tokens_embeddings = self.Llama_model.model.embed_tokens(answer_prefix_tokens)

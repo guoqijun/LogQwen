@@ -58,10 +58,6 @@ class DgpLogModel(nn.Module):
         self.projector = nn.Linear(self.Bert_model.config.hidden_size, self.Llama_model.config.hidden_size,
                                    device=device)
 
-        self.instruc_tokens = self.Llama_tokenizer(
-            ['Below is a sequence of system log messages:', '. Is this sequence normal or anomalous? \\n'],
-            return_tensors="pt", padding=True).to(self.device)
-
     def forward(self, sequences):
         '''
         :param sequences: list of list: [seq, seq, ...,seq]  , seq:[item, ..., item]
@@ -78,24 +74,8 @@ class DgpLogModel(nn.Module):
         outputs = self.projector(outputs)
         outputs = outputs.half()
 
-        # seq_embeddings = torch.tensor_split(outputs, seq_positions)
-
-        prefix = "The sequence is"
-        answer_prefix_tokens = self.Llama_tokenizer(prefix, padding=True, return_tensors="pt")['input_ids'][0, 1:].to(
-            self.device)
-
-        if type(self.Llama_model) == peft.peft_model.PeftModelForCausalLM:
-            instruc_embeddings = self.Llama_model.model.model.embed_tokens(self.instruc_tokens['input_ids'])
-            answer_prefix_tokens_embeddings = self.Llama_model.model.model.embed_tokens(answer_prefix_tokens)
-        else:
-            instruc_embeddings = self.Llama_model.model.embed_tokens(self.instruc_tokens['input_ids'])
-            answer_prefix_tokens_embeddings = self.Llama_model.model.embed_tokens(answer_prefix_tokens)
-
-        ins1 = instruc_embeddings[0][self.instruc_tokens['attention_mask'][0].bool()]
-        ins2 = instruc_embeddings[1][self.instruc_tokens['attention_mask'][1].bool()][1:]
-
         promot_embeddings = []
-        promot_embeddings = torch.cat([ins1, outputs, ins2, answer_prefix_tokens_embeddings])
+        promot_embeddings = torch.cat([outputs])
 
         inputs_embeds, attention_mask = stack_and_pad_left(promot_embeddings)
         attention_mask = attention_mask.to(self.device)
@@ -105,40 +85,15 @@ class DgpLogModel(nn.Module):
         if isinstance(eos_token_id, int):
             eos_token_id = [eos_token_id]
         eos_token_id_tensor = torch.tensor(eos_token_id).to(self.device) if eos_token_id is not None else None
-
         unfinished_sequences = torch.ones(batch_size, dtype=torch.long, device=self.device)
-
-        this_peer_finished = False
         answer = []
-        while not this_peer_finished:
-            Llama_output = self.Llama_model(inputs_embeds=inputs_embeds, attention_mask=attention_mask).logits
-            next_token_logits = Llama_output[:, -1, :]
-            next_tokens = torch.argmax(next_token_logits, dim=-1)
+        Llama_output = self.Llama_model(inputs_embeds=inputs_embeds, attention_mask=attention_mask).logits
+        next_token_logits = Llama_output[:, -1, :]
+        next_tokens = torch.argmax(next_token_logits, dim=-1)
 
-            next_tokens = next_tokens * unfinished_sequences + pad_token_id * (1 - unfinished_sequences)
+        next_tokens = next_tokens * unfinished_sequences + pad_token_id * (1 - unfinished_sequences)
 
-            # print(next_tokens)
-            answer.append(next_tokens)
-
-            if type(self.Llama_model) == peft.peft_model.PeftModelForCausalLM:
-                next_tokens_embeddings = self.Llama_model.model.model.embed_tokens(next_tokens)
-            else:
-                next_tokens_embeddings = self.Llama_model.model.embed_tokens(next_tokens)
-
-            inputs_embeds = torch.cat([inputs_embeds, next_tokens_embeddings[:, None, :]], dim=1)
-            attention_mask = torch.cat([attention_mask, unfinished_sequences[:, None]], dim=1)
-
-            if eos_token_id_tensor is not None:
-                unfinished_sequences = unfinished_sequences.mul(
-                    next_tokens.tile(eos_token_id_tensor.shape[0], 1).ne(eos_token_id_tensor.unsqueeze(1)).prod(dim=0)
-                )
-
-                # stop when each sentence is finished
-                if unfinished_sequences.max() == 0:
-                    this_peer_finished = True
-
-                # stop if we exceed the maximum answer length
-            if 5 < len(answer):
-                this_peer_finished = True
+        # print(next_tokens)
+        answer.append(next_tokens)
 
         return torch.stack(answer, dim=1)
