@@ -12,3 +12,9 @@
 2025-02-27 11:04:02 ERROR - An error occurred: IOException
 2025-02-27 15:26:20 WARN - Data processing is in progress.
 2025-02-27 12:06:59 INFO - Model training is in progress.
+2025-02-27 00:54:06 WARN - Model training is in progress.
+2025-02-27 02:41:23 INFO - Data processing is in progress.
+2025-02-27 16:36:25 INFO - Data ingestion is in progress.
+2025-02-27 18:23:35 ERROR - An error occurred: TimeoutException
+2025-02-27 07:26:13 WARN - Data ingestion is in progress.
+2025-02-27 11:04:02 ERROR - An error occurred: IOException
