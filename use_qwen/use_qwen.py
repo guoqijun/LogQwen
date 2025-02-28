@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 
 import torch
@@ -56,6 +57,15 @@ except FileNotFoundError:
 except Exception as e:
     print(f"读取文件时出现错误: {e}")
 
+start_time = time.time()
+
 for line in lines:
-    response = eval(line)
+    input_text = "下面这段日志是正常还是异常？你只允许返回正常或异常，不返回其它的信息。日志：" + line
+    response = eval(input_text)
     print(f"模型输出", response)
+
+end_time = time.time()
+
+# 计算运行耗时
+elapsed_time = end_time - start_time
+print(f"推理耗时: {elapsed_time} 秒")
