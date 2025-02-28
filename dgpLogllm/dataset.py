@@ -1,5 +1,3 @@
-import numpy as np
-import pandas as pd
 from torch.utils.data import Dataset
 import re
 
@@ -37,7 +35,7 @@ class Dataset(Dataset):
     def __init__(self, file_path):
         try:
             # 以只读模式打开 test.log 文件
-            with open('test.log', 'r', encoding='utf-8') as file:
+            with open('../test.log', 'r', encoding='utf-8') as file:
                 # 读取文件的全部内容
                 content = file.read()
                 # 按换行符分割内容成列表

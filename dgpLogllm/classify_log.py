@@ -7,7 +7,7 @@ from dgpLogModel import DgpLogModel
 max_content_len = 512
 
 ROOT_DIR = Path(__file__).parent
-data_path = os.path.join(ROOT_DIR, 'test.log')
+data_path = os.path.join(ROOT_DIR, '../test.log')
 
 Bert_path = r"/mnt/workspace/.cache/modelscope/hub/models/AI-ModelScope/bert-base-uncased"
 Qwen_path = r"/mnt/workspace/.cache/modelscope/hub/models/Qwen/Qwen2___5-1___5B-Instruct"

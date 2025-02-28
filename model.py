@@ -129,6 +129,7 @@ class LogLLM(nn.Module):
                 is_trainable=is_train_mode,
                 torch_dtype=torch.float16,
             )
+
             self.Bert_model = PeftModel.from_pretrained(
                 self.Bert_model,
                 Bert_ft_path,
