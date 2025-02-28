@@ -82,7 +82,7 @@ class DgpLogModel(nn.Module):
                                    device=device)
 
         self.instruc_tokens = self.Llama_tokenizer(
-            ['Below is a sequence of system log messages:', '. Is this sequence normal or anomalous? \\n'],
+            ['给你一段作业运行日志:', '回答我日志内容正常还是异常? \\n'],
             return_tensors="pt", padding=True).to(self.device)
 
     def forward(self, sequences_):
@@ -109,19 +109,12 @@ class DgpLogModel(nn.Module):
 
         seq_embeddings = torch.tensor_split(outputs, seq_positions)
 
-        prefix = "The sequence is"
+        prefix = "日志内容为："
         answer_prefix_tokens = self.Llama_tokenizer(prefix, padding=True, return_tensors="pt")['input_ids'][0, 1:].to(
             self.device)
 
-        if type(self.Llama_model) == peft.peft_model.PeftModelForCausalLM:
-            print("llm的类型是peft.peft_model.PeftModelForCausalLM")
-            instruc_embeddings = self.Llama_model.model.model.embed_tokens(self.instruc_tokens['input_ids'])
-            answer_prefix_tokens_embeddings = self.Llama_model.model.model.embed_tokens(answer_prefix_tokens)
-        else:
-            ##
-            print("llm的类型不是peft.peft_model.PeftModelForCausalLM")
-            instruc_embeddings = self.Llama_model.model.embed_tokens(self.instruc_tokens['input_ids'])
-            answer_prefix_tokens_embeddings = self.Llama_model.model.embed_tokens(answer_prefix_tokens)
+        instruc_embeddings = self.Llama_model.model.embed_tokens(self.instruc_tokens['input_ids'])
+        answer_prefix_tokens_embeddings = self.Llama_model.model.embed_tokens(answer_prefix_tokens)
 
         ins1 = instruc_embeddings[0][self.instruc_tokens['attention_mask'][0].bool()]
         ins2 = instruc_embeddings[1][self.instruc_tokens['attention_mask'][1].bool()][1:]
