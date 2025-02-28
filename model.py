@@ -120,14 +120,23 @@ class LogLLM(nn.Module):
 
         if ft_path is not None:
             print(f'Loading peft model from {ft_path}.')
+            Llama_ft_path = os.path.join(ft_path, 'Llama_ft')
             Bert_ft_path = os.path.join(ft_path, 'Bert_ft')
             projector_path = os.path.join(ft_path, 'projector.pt')
+            self.Llama_model = PeftModel.from_pretrained(
+                self.Llama_model,
+                Llama_ft_path,
+                is_trainable=is_train_mode,
+                torch_dtype=torch.float16,
+            )
             self.Bert_model = PeftModel.from_pretrained(
                 self.Bert_model,
                 Bert_ft_path,
                 is_trainable=is_train_mode,
                 torch_dtype=torch.float16,
             )
+            self.projector.load_state_dict(torch.load(projector_path, map_location=device))
+
 
     def save_ft_model(self, path):
         if not os.path.exists(path):
