@@ -8,12 +8,12 @@ ROOT_DIR = Path(__file__).parent
 data_path = os.path.join(ROOT_DIR, '../test.log')
 
 # Bert_path = r"/mnt/workspace/.cache/modelscope/hub/models/AI-ModelScope/bert-base-uncased"
-Qwen_path = r"/mnt/workspace/.cache/modelscope/hub/models/Qwen/Qwen2___5-1___5B-Instruct"
+Qwen_path = r"/mnt/workspace/.cache/modelscope/models/Qwen/Qwen2___5-1___5B-Instruct"
 
 # 加载分词器和模型
 # 这里使用 Qwen-7B-Chat 模型，你可以根据需要更换为其他 Qwen 系列模型
-tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen-7B-Chat", trust_remote_code=True)
-model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen-7B-Chat", device_map="auto", trust_remote_code=True).eval()
+tokenizer = AutoTokenizer.from_pretrained(Qwen_path, trust_remote_code=True)
+model = AutoModelForCausalLM.from_pretrained(Qwen_path, device_map="auto", trust_remote_code=True).eval()
 
 # 输入文本
 input_text = "介绍一下北京的故宫。"
