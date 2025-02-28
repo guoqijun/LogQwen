@@ -61,7 +61,7 @@ print("Qwen 模型的回复:", response)
 start_time = time.time()
 
 for line in lines:
-    input_text = "下面这段日志是正常还是异常？你只允许返回正常或异常，不返回其它的信息。日志：" + line
+    input_text = "给你提供一段日志，请帮我对日志进行分类，分类的结果只有两种，正常，异常，请直接高速我分类的结果，不要返回其它信息。日志：" + line
     response = eval(input_text)
     print(f"模型输出：", response)
 
