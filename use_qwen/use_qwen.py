@@ -15,6 +15,12 @@ Qwen_path = r"/mnt/workspace/.cache/modelscope/models/Qwen/Qwen2___5-1___5B-Inst
 tokenizer = AutoTokenizer.from_pretrained(Qwen_path, trust_remote_code=True)
 model = AutoModelForCausalLM.from_pretrained(Qwen_path, device_map="auto", trust_remote_code=True).eval()
 
+# 检查是否有可用的GPU
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# 将模型部署到指定设备
+model.to(device)
+
 # 输入文本
 input_text = "介绍一下北京的故宫。"
 
