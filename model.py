@@ -118,42 +118,6 @@ class LogLLM(nn.Module):
         #     self.Bert_model = prepare_model_for_kbit_training(self.Bert_model)
         #     self.Llama_model = prepare_model_for_kbit_training(self.Llama_model)
 
-        if ft_path is not None:
-            print(f'Loading peft model from {ft_path}.')
-            Llama_ft_path = os.path.join(ft_path, 'Llama_ft')
-            Bert_ft_path = os.path.join(ft_path, 'Bert_ft')
-            projector_path = os.path.join(ft_path, 'projector.pt')
-            self.Llama_model = PeftModel.from_pretrained(
-                self.Llama_model,
-                Llama_ft_path,
-                is_trainable=is_train_mode,
-                torch_dtype=torch.float16,
-            )
-            self.Bert_model = PeftModel.from_pretrained(
-                self.Bert_model,
-                Bert_ft_path,
-                is_trainable=is_train_mode,
-                torch_dtype=torch.float16,
-            )
-            self.projector.load_state_dict(torch.load(projector_path, map_location=device))
-        else:
-            print(f'Creating peft model.')
-            Bert_peft_config = LoraConfig(task_type=TaskType.FEATURE_EXTRACTION,
-                                          r=4,
-                                          lora_alpha=32,
-                                          lora_dropout=0.01)
-            self.Bert_model = get_peft_model(self.Bert_model, Bert_peft_config)
-
-            Llama_peft_config = LoraConfig(
-                r=8,
-                lora_alpha=16,
-                lora_dropout=0.1,
-                target_modules=["q_proj", "v_proj"],
-                bias="none",
-                task_type=TaskType.CAUSAL_LM
-            )
-            self.Llama_model = get_peft_model(self.Llama_model, Llama_peft_config)
-
     def save_ft_model(self, path):
         if not os.path.exists(path):
             os.makedirs(path)
