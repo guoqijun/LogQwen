@@ -13,9 +13,22 @@ Qwen_path = r"/mnt/workspace/.cache/modelscope/hub/models/Qwen/Qwen2.5-1.5B-Inst
 # 检查是否有可用的GPU
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+try:
+    # 以只读模式打开 test.log 文件
+    with open(data_path, 'r', encoding='utf-8') as file:
+        # 读取文件的全部内容
+        content = file.read()
+        # 按换行符分割内容成列表
+        lines = content.split('\n')
+except FileNotFoundError:
+    print("未找到 test.log 文件，请检查文件路径是否正确。")
+except Exception as e:
+    print(f"读取文件时出现错误: {e}")
+
 print(
     f'dataset_name: {data_path}\n'
     f'Qwen_path: {Qwen_path}\n'
+    f'lines: {len(lines)}\n'
     f'device: {device}')
 
 # 加载分词器和模型
@@ -34,8 +47,8 @@ def eval(input):
         outputs = model.generate(**inputs, max_new_tokens=512, do_sample=True, top_p=0.85, temperature=0.35)
 
     # 将输出的 token 序列转换为文本
-    response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    return response
+    llm_response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    return llm_response
 
 
 # 输入文本
@@ -45,24 +58,12 @@ response = eval(input_text)
 print("输入问题:", )
 print("Qwen 模型的回复:", response)
 
-try:
-    # 以只读模式打开 test.log 文件
-    with open(data_path, 'r', encoding='utf-8') as file:
-        # 读取文件的全部内容
-        content = file.read()
-        # 按换行符分割内容成列表
-        lines = content.split('\n')
-except FileNotFoundError:
-    print("未找到 test.log 文件，请检查文件路径是否正确。")
-except Exception as e:
-    print(f"读取文件时出现错误: {e}")
-
 start_time = time.time()
 
 for line in lines:
     input_text = "下面这段日志是正常还是异常？你只允许返回正常或异常，不返回其它的信息。日志：" + line
     response = eval(input_text)
-    print(f"模型输出", response)
+    print(f"模型输出：", response)
 
 end_time = time.time()
 
