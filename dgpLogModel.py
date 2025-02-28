@@ -25,34 +25,6 @@ def merge_data(data):
     return merged_data, start_positions
 
 
-def stack_and_pad_right(tensors):
-    # 找到第一维度的最大长度
-    max_len = max(tensor.shape[0] for tensor in tensors)
-
-    # 创建一个存放结果的列表
-    padded_tensors = []
-    padding_masks = []
-
-    for tensor in tensors:
-        # 计算需要填充的长度
-        pad_len = max_len - tensor.shape[0]
-
-        # 使用零填充
-        padded_tensor = torch.nn.functional.pad(tensor, (0, 0, 0, pad_len))
-        padded_tensors.append(padded_tensor)
-
-        # 创建填充位置的掩码
-        padding_mask = torch.cat([torch.ones(tensor.shape[0], dtype=torch.long),
-                                  torch.zeros(pad_len, dtype=torch.long)])
-        padding_masks.append(padding_mask)
-
-    # 堆叠所有填充后的张量
-    stacked_tensor = torch.stack(padded_tensors)
-    padding_masks = torch.stack(padding_masks)
-
-    return stacked_tensor, padding_masks
-
-
 def stack_and_pad_left(tensors):
     # 找到第一维度的最大长度
     max_len = max(tensor.shape[0] for tensor in tensors)
@@ -130,22 +102,16 @@ class DgpLogModel(nn.Module):
         seq_positions = seq_positions[1:]
         inputs = self.Bert_tokenizer(data, return_tensors="pt", max_length=self.max_content_len, padding=True,
                                      truncation=True).to(self.device)
-        print("bert分词之后；", inputs)
         outputs = self.Bert_model(**inputs).pooler_output  # dim = 768
         outputs = outputs.float()
-        print("bert分词之后池化层输出；", outputs)
         outputs = self.projector(outputs)
         outputs = outputs.half()
-        print("projector投影之后；", outputs)
 
         seq_embeddings = torch.tensor_split(outputs, seq_positions)
-
-        print("把语义向量进行分割；", seq_embeddings)
 
         prefix = "The sequence is"
         answer_prefix_tokens = self.Llama_tokenizer(prefix, padding=True, return_tensors="pt")['input_ids'][0, 1:].to(
             self.device)
-        print("前缀词的分词输出；", answer_prefix_tokens)
 
         if type(self.Llama_model) == peft.peft_model.PeftModelForCausalLM:
             print("llm的类型是peft.peft_model.PeftModelForCausalLM")
@@ -158,20 +124,15 @@ class DgpLogModel(nn.Module):
             answer_prefix_tokens_embeddings = self.Llama_model.model.embed_tokens(answer_prefix_tokens)
 
         ins1 = instruc_embeddings[0][self.instruc_tokens['attention_mask'][0].bool()]
-        print("instruc_embeddings的ins1；", ins1)
         ins2 = instruc_embeddings[1][self.instruc_tokens['attention_mask'][1].bool()][1:]
-        print("instruc_embeddings的ins2；", ins2)
 
         promot_embeddings = []
         for seq_embedding in seq_embeddings:
             prompt_embedding = torch.cat([ins1, seq_embedding, ins2, answer_prefix_tokens_embeddings])
-            print("拼接之后的prompt_embedding：", prompt_embedding)
             promot_embeddings.append(prompt_embedding)
 
         inputs_embeds, attention_mask = stack_and_pad_left(promot_embeddings)
         attention_mask = attention_mask.to(self.device)
-        print("填充inputs_embeds：", inputs_embeds)
-        print("填充attention_mask：", attention_mask)
 
         pad_token_id = self.Llama_tokenizer.pad_token_id
         eos_token_id = self.Llama_tokenizer.eos_token_id
@@ -185,16 +146,12 @@ class DgpLogModel(nn.Module):
         answer = []
         while not this_peer_finished:
             Llama_output = self.Llama_model(inputs_embeds=inputs_embeds, attention_mask=attention_mask).logits
-            print("llm的输出：", Llama_output)
             next_token_logits = Llama_output[:, -1, :]
-            print("next_token_logits：", next_token_logits)
             next_tokens = torch.argmax(next_token_logits, dim=-1)
             next_tokens = next_tokens * unfinished_sequences + pad_token_id * (1 - unfinished_sequences)
-            print("next_tokens：", next_tokens)
 
             # print(next_tokens)
             answer.append(next_tokens)
-            print("answer：", answer)
 
             if type(self.Llama_model) == peft.peft_model.PeftModelForCausalLM:
                 next_tokens_embeddings = self.Llama_model.model.model.embed_tokens(next_tokens)
