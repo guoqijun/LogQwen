@@ -118,6 +118,17 @@ class LogLLM(nn.Module):
         #     self.Bert_model = prepare_model_for_kbit_training(self.Bert_model)
         #     self.Llama_model = prepare_model_for_kbit_training(self.Llama_model)
 
+        if ft_path is not None:
+            print(f'Loading peft model from {ft_path}.')
+            Bert_ft_path = os.path.join(ft_path, 'Bert_ft')
+            projector_path = os.path.join(ft_path, 'projector.pt')
+            self.Bert_model = PeftModel.from_pretrained(
+                self.Bert_model,
+                Bert_ft_path,
+                is_trainable=is_train_mode,
+                torch_dtype=torch.float16,
+            )
+
     def save_ft_model(self, path):
         if not os.path.exists(path):
             os.makedirs(path)
