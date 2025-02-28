@@ -82,7 +82,7 @@ class DgpLogModel(nn.Module):
                                    device=device)
 
         self.instruc_tokens = self.Llama_tokenizer(
-            ['给你一段作业运行日志:', '回答我日志内容正常还是异常? \\n'],
+            ['Below is a sequence of system log messages:', '. Is this sequence normal or anomalous? \\n'],
             return_tensors="pt", padding=True).to(self.device)
 
     def forward(self, sequences_):
@@ -109,7 +109,7 @@ class DgpLogModel(nn.Module):
 
         seq_embeddings = torch.tensor_split(outputs, seq_positions)
 
-        prefix = "日志内容为："
+        prefix = "The sequence is"
         answer_prefix_tokens = self.Llama_tokenizer(prefix, padding=True, return_tensors="pt")['input_ids'][0, 1:].to(
             self.device)
 
