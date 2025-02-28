@@ -24,6 +24,15 @@ print(
 
 def classify(model, dataset):
     model.eval()
+    # 打印分割后的列表
+    # 遍历列表并打印每一行
+    for line in dataset.sequences:
+        print("给model的数据", line)
+        outputs_ids = model(line)
+        print("推理后：", outputs_ids)
+        outputs = model.Llama_tokenizer.batch_decode(outputs_ids)
+        print("编码后：", outputs)
+        
     print("fuck you")
 
 

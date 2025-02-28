@@ -4,22 +4,6 @@ from transformers import BertTokenizerFast, BertModel, BitsAndBytesConfig, AutoT
 from torch import nn
 
 
-def merge_data(data):
-    merged_data = []
-
-    # 用于记录每个子列表开始的位置
-    start_positions = []
-
-    # 当前起始位置
-    current_position = 0
-
-    for sublist in data:
-        start_positions.append(current_position)
-        merged_data.extend(sublist)
-        current_position += len(sublist)
-    return merged_data, start_positions
-
-
 def stack_and_pad_left(tensors):
     # 找到第一维度的最大长度
     max_len = max(tensor.shape[0] for tensor in tensors)
@@ -78,17 +62,13 @@ class DgpLogModel(nn.Module):
             ['Below is a sequence of system log messages:', '. Is this sequence normal or anomalous? \\n'],
             return_tensors="pt", padding=True).to(self.device)
 
-    def forward(self, sequences_):
+    def forward(self, sequences):
         '''
         :param sequences: list of list: [seq, seq, ...,seq]  , seq:[item, ..., item]
         :return: Generated answer (token id).
         '''
-
-        sequences = [sequence[:self.max_seq_len] for sequence in sequences_]
-
         batch_size = len(sequences)
-        data, seq_positions = merge_data(sequences)
-        seq_positions = seq_positions[1:]
+        data = sequences
 
         inputs = self.Bert_tokenizer(data, return_tensors="pt", max_length=self.max_content_len, padding=True,
                                      truncation=True).to(self.device)
@@ -98,7 +78,7 @@ class DgpLogModel(nn.Module):
         outputs = self.projector(outputs)
         outputs = outputs.half()
 
-        seq_embeddings = torch.tensor_split(outputs, seq_positions)
+        # seq_embeddings = torch.tensor_split(outputs, seq_positions)
 
         prefix = "The sequence is"
         answer_prefix_tokens = self.Llama_tokenizer(prefix, padding=True, return_tensors="pt")['input_ids'][0, 1:].to(
@@ -115,9 +95,7 @@ class DgpLogModel(nn.Module):
         ins2 = instruc_embeddings[1][self.instruc_tokens['attention_mask'][1].bool()][1:]
 
         promot_embeddings = []
-        for seq_embedding in seq_embeddings:
-            prompt_embedding = torch.cat([ins1, seq_embedding, ins2, answer_prefix_tokens_embeddings])
-            promot_embeddings.append(prompt_embedding)
+        promot_embeddings = torch.cat([ins1, outputs, ins2, answer_prefix_tokens_embeddings])
 
         inputs_embeds, attention_mask = stack_and_pad_left(promot_embeddings)
         attention_mask = attention_mask.to(self.device)

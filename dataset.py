@@ -42,10 +42,6 @@ class Dataset(Dataset):
                 content = file.read()
                 # 按换行符分割内容成列表
                 lines = content.split('\n')
-                # 打印分割后的列表
-                # 遍历列表并打印每一行
-                for line in lines:
-                    print(line)
         except FileNotFoundError:
             print("未找到 test.log 文件，请检查文件路径是否正确。")
         except Exception as e:
